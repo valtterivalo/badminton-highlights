@@ -1,0 +1,24 @@
+# Core packages
+numpy>=1.24.3
+opencv-python>=4.8.0
+yt-dlp>=2023.7.6
+ffmpeg-python>=0.2.0
+moviepy==1.0.3
+
+# OpenAI for metadata extraction
+openai>=1.6.1
+
+# YouTube API packages
+google-api-python-client>=2.97.0
+google-auth-httplib2>=0.1.0
+google-auth-oauthlib>=1.0.0
+
+# Utility packages
+requests>=2.31.0
+tqdm>=4.66.1
+python-dotenv>=1.0.0
+
+# Image processing
+Pillow>=10.0.0
+
+# Note: argparse is removed as it's part of the Python standard library 

@@ -1,0 +1,65 @@
+# Video and audio files
+*.mp4
+*.avi
+*.m4a
+*.mov
+*.webm
+*.mkv
+output/
+data/
+
+# Credentials and secrets
+.env
+*.env
+client_secrets.json
+*.pickle
+oauth2.json
+credentials.json
+google-credentials/
+
+# YouTube API credentials
+.youtube-upload-credentials/
+
+# Python related
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# IDE settings
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Keep template directory but not large files
+# !templates/
+# templates/*.mp4
+
+# Keep the .gitignore file itself
+!.gitignore 

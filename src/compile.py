@@ -41,7 +41,7 @@ def compile_highlights(
             rally_segments,
             target_fps=target_fps,
             speed_factor=speed_factor,
-            color_enhancement=color_enhancement,
+            color_enhance=color_enhancement,
             audio_filter=audio_filter
         )
     

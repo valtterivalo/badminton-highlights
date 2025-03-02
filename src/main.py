@@ -223,6 +223,13 @@ def main():
     parser.add_argument("--extract-template", "-e", action="store_true", help="Extract a template from the video")
     parser.add_argument("--template-time", "-t", type=int, default=60, help="Time (in seconds) to extract template from")
     
+    # Add new video enhancement options
+    parser.add_argument("--no-enhance", action="store_true", help="Disable video enhancements")
+    parser.add_argument("--target-fps", type=int, default=60, help="Target frame rate for interpolation (default: 60)")
+    parser.add_argument("--speed-factor", type=float, default=1.05, help="Speed factor for rallies (default: 1.05)")
+    parser.add_argument("--no-color-enhance", action="store_true", help="Disable color enhancement")
+    parser.add_argument("--no-audio-filter", action="store_true", help="Disable audio low-pass filter")
+    
     args = parser.parse_args()
     
     # Create output directory if it doesn't exist
@@ -248,23 +255,19 @@ def main():
     # Extract template if requested
     if args.extract_template:
         print(f"Extracting template from video at {args.template_time} seconds...")
-        template_path = template_manager.extract_template_from_video(
-            temp_video_path, 
-            timestamp=args.template_time
-        )
-        if template_path:
-            print(f"Extracted template saved to {template_path}")
-        else:
-            print("Failed to extract template")
+        template_manager.extract_template_from_video(temp_video_path, args.template_time)
+        print("Template extraction complete. Continuing with normal processing.")
     
-    # Get the appropriate template for the match type
-    template_path = template_manager.get_template_for_match_type(args.match_type)
+    # Get the appropriate template file
+    template_path = template_manager.get_template_path()
+    print(f"Using template file: {template_path}")
     
-    # Get rally parameters for the match type
+    # Setup rally detection parameters based on match type
     rally_params = get_rally_parameters(args.match_type)
+    print(f"Using parameters for match type: {args.match_type}")
     
-    # Step 3: Process the video to detect rallies
-    print(f"Processing video to detect rallies (match type: {args.match_type})...")
+    # Step 3: Detect rally segments
+    print("Detecting rally segments...")
     start_time = time.time()
     
     rally_segments = detect_rallies(
@@ -283,20 +286,48 @@ def main():
         print("No rally segments detected. Exiting.")
         return
     
-    # Step 4: Compile the highlights video
+    # Step 4: Compile the highlights video with enhancements
     output_filename = format_output_filename(metadata, args.output)
     print(f"Compiling highlights video to {output_filename}...")
-    compile_highlights(temp_video_path, output_filename, rally_segments)
+    
+    # Set up enhancement options
+    enhance_video = not args.no_enhance
+    color_enhancement = not args.no_color_enhance
+    audio_filter = not args.no_audio_filter
+    
+    # Add information about enhancements
+    if enhance_video:
+        print(f"Applying video enhancements:")
+        print(f"  - Frame interpolation: {args.target_fps} fps")
+        print(f"  - Speed adjustment: {args.speed_factor:.2f}x")
+        print(f"  - Color enhancement: {'Enabled' if color_enhancement else 'Disabled'}")
+        print(f"  - Audio filter: {'Enabled' if audio_filter else 'Disabled'}")
+    
+    compile_highlights(
+        temp_video_path, 
+        output_filename, 
+        rally_segments, 
+        enhance_video=enhance_video,
+        target_fps=args.target_fps,
+        speed_factor=args.speed_factor,
+        color_enhancement=color_enhancement,
+        audio_filter=audio_filter
+    )
     print("Highlights compilation complete.")
     
-    # Extract a thumbnail for the video
-    thumbnail_path = extract_thumbnail(temp_video_path, rally_segments, args.output)
-    if thumbnail_path:
-        print(f"Extracted thumbnail saved to {thumbnail_path}")
+    # Extract a thumbnail from the longest rally
+    thumbnail_path = None
+    try:
+        print("Extracting thumbnail...")
+        thumbnail_path = extract_thumbnail(temp_video_path, rally_segments, args.output)
+        if thumbnail_path:
+            print(f"Thumbnail saved to {thumbnail_path}")
+    except Exception as e:
+        print(f"Error extracting thumbnail: {e}")
     
-    # Step 5: Preview highlights if requested
+    # Step 5: Preview if requested
     if args.preview:
-        print("Opening preview window...")
+        print("Previewing highlights...")
         should_upload = preview_highlights(output_filename)
         if not should_upload:
             print("Upload cancelled after preview. Highlights video is saved at:")

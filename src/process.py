@@ -8,7 +8,7 @@ def detect_rallies(video_path, template_path=os.path.join(os.path.dirname(__file
                   test=False, debug=False, match_type="men_singles", 
                   CAMERA_MOVEMENT_THRESHOLD=90000, LOW_MOVEMENT_THRESHOLD=2500, 
                   ALLOWED_LOW_MOVEMENT_FRAMES=60, MIN_CLOSEUP_MOVEMENT=30000,
-                  MIN_RALLY_DURATION=8, MAX_MERGE_GAP=8):
+                  MIN_RALLY_DURATION=8, MAX_MERGE_GAP=8, MAX_RALLY_DURATION=90):
     """
     Detect rally segments in a badminton match video.
     
@@ -24,6 +24,7 @@ def detect_rallies(video_path, template_path=os.path.join(os.path.dirname(__file
         MIN_CLOSEUP_MOVEMENT: Minimum movement for replay/closeup detection
         MIN_RALLY_DURATION: Minimum duration for valid rally segments (seconds)
         MAX_MERGE_GAP: Maximum gap to merge adjacent segments (seconds)
+        MAX_RALLY_DURATION: Maximum duration for valid rally segments (seconds)
         
     Returns:
         List of (start_time, end_time) tuples in seconds
@@ -67,6 +68,7 @@ def detect_rallies(video_path, template_path=os.path.join(os.path.dirname(__file
     print(f"  MIN_CLOSEUP_MOVEMENT: {MIN_CLOSEUP_MOVEMENT}")
     print(f"  MIN_RALLY_DURATION: {MIN_RALLY_DURATION}s")
     print(f"  MAX_MERGE_GAP: {MAX_MERGE_GAP}s")
+    print(f"  MAX_RALLY_DURATION: {MAX_RALLY_DURATION}s")
     print(f"Using template: {template_path}")
 
     # Create debug video writer if needed
@@ -90,7 +92,8 @@ def detect_rallies(video_path, template_path=os.path.join(os.path.dirname(__file
     FRAME_SKIP = 2
     MIN_NON_RALLY_FRAMES = 45
     MIN_CANDIDATE_FRAMES = 4
-    LOOKBACK_BUFFER_SIZE = int(3 * fps)
+    # Increased lookback buffer size for better rally start detection (from 3s to 4s)
+    LOOKBACK_BUFFER_SIZE = int(4 * fps)
     
     # Camera stability parameters
     CAMERA_STABILITY_WINDOW_SIZE = 5    # Use a window to smooth camera stability detection
@@ -333,8 +336,8 @@ def detect_rallies(video_path, template_path=os.path.join(os.path.dirname(__file
                             else:
                                 break
                     
-                    # Calculate how far back to look for rally start
-                    lookback_time = min(3.0, lookback_frames * FRAME_SKIP / fps)
+                    # Calculate how far back to look for rally start - increased from 3.0 to 4.0 seconds
+                    lookback_time = min(4.0, lookback_frames * FRAME_SKIP / fps)
                     
                     # Determine rally start time with the lookback
                     if len(time_buffer) > 0 and lookback_time > 0:
@@ -387,8 +390,8 @@ def detect_rallies(video_path, template_path=os.path.join(os.path.dirname(__file
                         # For replays/closeups, end rally immediately at detection point
                         rally_end_time = current_time - (CONTINUOUS_CAMERA_MOVING_FRAMES * FRAME_SKIP / fps)
                     else:
-                        # For normal endings, use 1/3 rule as before
-                        rally_end_time = current_time - (frames_without_rally / fps / 3)
+                        # For normal endings, end slightly earlier than before (from 1/3 to 1/2 rule)
+                        rally_end_time = current_time - (frames_without_rally / fps / 2)
                     
                     rally_duration = rally_end_time - rally_start_time
                     
@@ -412,7 +415,7 @@ def detect_rallies(video_path, template_path=os.path.join(os.path.dirname(__file
     if debug_writer is not None:
         debug_writer.release()
     
-    # Post-processing: merge nearby segments and filter by min duration
+    # Post-processing: merge nearby segments and filter by min and max duration
     
     if potential_segments:
         # Sort segments by start time
@@ -455,11 +458,13 @@ def detect_rallies(video_path, template_path=os.path.join(os.path.dirname(__file
         
         merged_segments.append(current_segment)  # Add the last segment
         
-        # Filter segments by minimum duration
+        # Filter segments by minimum and maximum duration
         for start, end, duration in merged_segments:
-            if duration >= MIN_RALLY_DURATION:
+            if duration >= MIN_RALLY_DURATION and duration <= MAX_RALLY_DURATION:
                 rally_segments.append((start, end))
                 print(f"Final rally segment: {start:.1f}-{end:.1f} ({duration:.1f}s)")
+            elif duration > MAX_RALLY_DURATION:
+                print(f"Discarded long rally: {start:.1f}-{end:.1f} ({duration:.1f}s > {MAX_RALLY_DURATION}s)")
             else:
                 print(f"Discarded short rally: {start:.1f}-{end:.1f} ({duration:.1f}s < {MIN_RALLY_DURATION}s)")
     

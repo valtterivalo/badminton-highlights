@@ -63,6 +63,14 @@ Planned improvements to the video processing pipeline:
 - **Audio Processing**: Analyze audio levels to help identify exciting moments or rally endpoints (crowd reactions)
 - **Parameter Auto-tuning**: Develop methods to automatically adjust detection parameters based on video characteristics
 - **Support for Different Match Types**: Optimize parameters for women's singles, doubles, and mixed doubles matches
+- **Frame Rate Interpolation**: Convert 30fps videos to 60fps for smoother playback
+- **Rally Speed Adjustment**: Speed up rallies by approximately 5% to make them appear more dynamic
+- **Color Enhancement**: Apply subtle color enhancement to make the video more vibrant
+- **Audio Filter**: Apply a low-pass filter (above 10kHz) to reduce commentary while preserving game sounds
+- **Rally Trimming Improvements**: 
+  - Expand the lookback window to start rallies slightly earlier
+  - Trim rally endings to be slightly shorter
+  - Implement a maximum rally duration (90 seconds) to avoid extremely long segments
 
 ### 4. Cloud Deployment
 
@@ -94,6 +102,20 @@ Key parameters that may need adjustment for different match types:
 | `MIN_CLOSEUP_MOVEMENT` | Min movement for replay/closeup detection | 30000 | Adjust based on video style |
 | `MIN_RALLY_DURATION` | Minimum duration for valid rally segments | 8 | Measured in seconds |
 | `MAX_MERGE_GAP` | Maximum gap to merge adjacent segments | 8 | Measured in seconds |
+| `MAX_RALLY_DURATION` | Maximum duration for valid rally segments | 90 | Measured in seconds |
+| `LOOKBACK_BUFFER_SIZE` | Frames to look back for rally start detection | 3 * fps | Will be increased for better rally starts |
+
+### Video Enhancement Parameters
+
+New parameters for video quality enhancement:
+
+| Parameter | Description | Target Value | Implementation Notes |
+|-----------|-------------|--------------|----------------------|
+| `FRAME_RATE_TARGET` | Target frame rate after interpolation | 60fps | Auto-detect source fps first |
+| `SPEED_FACTOR` | Speed multiplier for rallies | 1.05 (5% increase) | Maintain audio pitch during speed change |
+| `COLOR_SATURATION` | Color saturation adjustment | 1.1-1.2 (10-20% increase) | Apply subtle increase without overprocessing |
+| `COLOR_VIBRANCE` | Color vibrance adjustment | 1.1-1.2 (10-20% increase) | Enhance colors without distortion |
+| `AUDIO_LOWPASS_CUTOFF` | Frequency cutoff for low-pass filter | ~10kHz | Reduce commentary while preserving game sounds |
 
 ### Development Best Practices
 
@@ -144,6 +166,30 @@ def detect_rallies(
     """
 ```
 
+### Video Enhancement Function (Planned)
+
+```python
+def enhance_video(
+    input_path: str,
+    output_path: str,
+    target_fps: int = 60,
+    speed_factor: float = 1.05,
+    color_enhancement: bool = True,
+    audio_filter: bool = True
+) -> None:
+    """
+    Enhance a video by interpolating frames, adjusting speed, and enhancing colors.
+    
+    Args:
+        input_path: Path to the input video file
+        output_path: Path to save the enhanced video
+        target_fps: Target frame rate for interpolation
+        speed_factor: Factor to speed up the video
+        color_enhancement: Whether to enhance video colors
+        audio_filter: Whether to apply low-pass filter to audio
+    """
+```
+
 ### End-to-End Processing Function (Planned)
 
 ```python
@@ -152,7 +198,8 @@ def process_match_video(
     output_path: str = None,
     auto_upload: bool = False,
     youtube_credentials: dict = None,
-    match_type: str = None
+    match_type: str = None,
+    enhance_video: bool = True
 ) -> dict:
     """
     Process a full badminton match from URL to highlights video.
@@ -163,6 +210,7 @@ def process_match_video(
         auto_upload: Whether to upload the result to YouTube
         youtube_credentials: Credentials for YouTube API
         match_type: Type of match (auto-detected if None)
+        enhance_video: Whether to apply video enhancements
         
     Returns:
         Dictionary with processing information and results
@@ -176,7 +224,12 @@ def process_match_video(
 | 1 | Rally Detection Algorithm | Completed | ✅ |
 | 2 | End-to-End Pipeline Development | 2-3 weeks | 🔄 |
 | 3 | Match Information Extraction | 1-2 weeks | 📝 |
-| 4 | Enhanced Video Processing | 3-4 weeks | 📝 |
+| 4 | Enhanced Video Processing | 3-4 weeks | 🔄 |
+| 4.1 | Frame Rate Interpolation | 1 week | ✅ |
+| 4.2 | Rally Speed Adjustment | 3-4 days | ✅ |
+| 4.3 | Color Enhancement | 3-4 days | ✅ |
+| 4.4 | Audio Processing | 3-4 days | ✅ |
+| 4.5 | Rally Detection Refinements | 1 week | ✅ |
 | 5 | Local Deployment & Testing | 2-3 weeks | 📝 |
 | 6 | Cloud Deployment | 4-6 weeks | 📝 |
 

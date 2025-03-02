@@ -6,7 +6,7 @@ by manually defining segments within that clip.
 
 import os
 from moviepy.editor import VideoFileClip
-from src.compile import compile_highlights
+from compile import compile_highlights
 
 def create_test_clip(input_path, output_path, start_time=600, duration=60):
     """

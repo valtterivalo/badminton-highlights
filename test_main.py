@@ -3,7 +3,7 @@ Simplified test script for the main functionality focusing on download caching.
 """
 
 import os
-from src.download import download_video
+from download import download_video
 
 def main():
     # URL to test

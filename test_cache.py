@@ -3,7 +3,7 @@ Simple test script to verify the video caching system.
 """
 
 import os
-from src.video_cache import get_cached_video_path, add_video_to_cache, get_all_cached_videos
+from video_cache import get_cached_video_path, add_video_to_cache, get_all_cached_videos
 
 # Test URL
 url = "https://www.youtube.com/watch?v=-lE9pco8kVQ"

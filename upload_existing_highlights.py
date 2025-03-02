@@ -7,8 +7,8 @@ import os
 import json
 import argparse
 from pathlib import Path
-from src.upload import upload_to_youtube, get_authenticated_service, update_video_thumbnail
-from src.config import YOUTUBE_UPLOAD_SETTINGS
+from upload import upload_to_youtube, get_authenticated_service, update_video_thumbnail
+from config import YOUTUBE_UPLOAD_SETTINGS
 
 def main():
     parser = argparse.ArgumentParser(description="Upload existing highlights to YouTube")

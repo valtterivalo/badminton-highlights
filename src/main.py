@@ -2,24 +2,28 @@ import os
 import argparse
 import time
 from pathlib import Path
-from src.download import download_video
-from src.process import detect_rallies
-from src.compile import compile_highlights
-from src.upload import upload_to_youtube, get_authenticated_service, update_video_thumbnail
-from src.preprocess import trim_match_video, parse_timestamp, parse_set_pauses
+from download import download_video
+from process import detect_rallies
+from compile import compile_highlights
+from upload import upload_to_youtube, get_authenticated_service, update_video_thumbnail
+from preprocess import trim_match_video, parse_timestamp, parse_set_pauses, create_timestamp_mapper
+from process_cache import (
+    get_cached_preprocessing, cache_preprocessing_result,
+    get_cached_rally_detection, cache_rally_detection_result
+)
 import json
 import requests
 import openai
 import cv2
 from datetime import datetime
-from src.config import (
+from config import (
     OPENAI_API_KEY, 
     YOUTUBE_API_KEY, 
     OUTPUT_DIR, 
     YOUTUBE_UPLOAD_SETTINGS,
     get_rally_parameters
 )
-from src.template_manager import template_manager
+from template_manager import template_manager
 
 def analyze_video_metadata(url, title, description):
     """
@@ -237,6 +241,11 @@ def main():
     parser.add_argument("--set-pauses", help="Comma-separated list of set pauses as 'start-end' timestamps (e.g., '9:50-12:40,1.14:23-1.16:23')")
     parser.add_argument("--keep-temp", action="store_true", help="Keep temporary preprocessed files")
     
+    # Add cache-related arguments
+    parser.add_argument("--no-cache", action="store_true", help="Disable caching (force reprocessing)")
+    parser.add_argument("--clear-cache", action="store_true", help="Clear the cache before processing")
+    parser.add_argument("--clear-cache-days", type=int, help="Clear cache entries older than this many days")
+    
     args = parser.parse_args()
     
     # Create output directory if it doesn't exist
@@ -259,29 +268,70 @@ def main():
     metadata = analyze_video_metadata(args.url, title, description)
     print(f"Match information: {json.dumps(metadata, indent=2)}")
     
+    # Handle cache clearing if requested
+    if args.clear_cache:
+        from process_cache import clear_cache
+        clear_cache()
+        print("Cache cleared.")
+    elif args.clear_cache_days:
+        from process_cache import clear_cache
+        clear_cache(args.clear_cache_days)
+    
     # New Step: Preprocess video to trim unwanted sections
     match_start = parse_timestamp(args.match_start) if args.match_start else None
     match_end = parse_timestamp(args.match_end) if args.match_end else None
     set_pauses = parse_set_pauses(args.set_pauses) if args.set_pauses else None
     
+    # Initialize timestamp_mapper as identity function
+    timestamp_mapper = lambda t: t
+    
     if match_start is not None or match_end is not None or set_pauses is not None:
-        print("Preprocessing video to trim unwanted sections...")
+        print("Processing video trimming...")
         preprocessed_path = str(output_dir / "preprocessed_input.mp4")
-        trimmed_video_path, timestamp_mapper = trim_match_video(
-            temp_video_path,
-            preprocessed_path,
-            match_start=match_start,
-            match_end=match_end,
-            set_pauses=set_pauses
-        )
         
-        # Use the trimmed video for further processing
-        processing_video_path = trimmed_video_path
-        print(f"Using preprocessed video for analysis: {processing_video_path}")
+        # Check cache for preprocessed video
+        cached_preprocessing = None
+        if not args.no_cache:
+            cached_preprocessing = get_cached_preprocessing(
+                temp_video_path, match_start, match_end, set_pauses
+            )
+        
+        if cached_preprocessing:
+            # Use cached preprocessing results
+            processing_video_path = cached_preprocessing['output_path']
+            print(f"Using cached preprocessed video: {processing_video_path}")
+            
+            # Recreate the timestamp mapper function
+            original_start = cached_preprocessing.get('match_start')
+            original_end = cached_preprocessing.get('match_end')
+            original_pauses = cached_preprocessing.get('set_pauses')
+            
+            # Use the utility function to create the timestamp mapper
+            timestamp_mapper = create_timestamp_mapper(original_start, original_end, original_pauses)
+        else:
+            # Process the video
+            print("Preprocessing video to trim unwanted sections...")
+            trimmed_video_path, timestamp_mapper = trim_match_video(
+                temp_video_path,
+                preprocessed_path,
+                match_start=match_start,
+                match_end=match_end,
+                set_pauses=set_pauses
+            )
+            
+            # Cache the result
+            if not args.no_cache:
+                cache_preprocessing_result(
+                    temp_video_path, trimmed_video_path,
+                    match_start, match_end, set_pauses
+                )
+            
+            # Use the trimmed video for further processing
+            processing_video_path = trimmed_video_path
+            print(f"Using preprocessed video for analysis: {processing_video_path}")
     else:
         # No preprocessing needed
         processing_video_path = temp_video_path
-        timestamp_mapper = lambda t: t  # Identity function
         print("No preprocessing parameters specified, using original video")
     
     # Extract template if requested
@@ -308,14 +358,34 @@ def main():
     print("Detecting rally segments...")
     start_time = time.time()
     
-    rally_segments = detect_rallies(
-        processing_video_path, 
-        template_path=template_path,
-        test=False, 
-        debug=args.debug,
-        match_type=args.match_type,
-        **rally_params
-    )
+    # Try to get cached rally detection results
+    rally_segments = None
+    if not args.no_cache:
+        cached_rally_data = get_cached_rally_detection(
+            processing_video_path, template_path, args.match_type, rally_params
+        )
+        if cached_rally_data:
+            rally_segments = cached_rally_data.get('rally_segments')
+            if rally_segments:
+                print(f"Using cached rally detection results: {len(rally_segments)} rallies")
+    
+    # If no cached results, detect rallies
+    if not rally_segments:
+        rally_segments = detect_rallies(
+            processing_video_path, 
+            template_path=template_path,
+            test=False, 
+            debug=args.debug,
+            match_type=args.match_type,
+            **rally_params
+        )
+        
+        # Cache the rally detection results
+        if not args.no_cache:
+            cache_rally_detection_result(
+                processing_video_path, template_path,
+                args.match_type, rally_params, rally_segments
+            )
     
     process_time = time.time() - start_time
     print(f"Processing completed in {process_time:.2f} seconds. Detected {len(rally_segments)} rally segments.")

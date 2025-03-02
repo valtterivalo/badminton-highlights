@@ -6,7 +6,7 @@ the cache system was implemented.
 
 import os
 import argparse
-from src.video_cache import add_video_to_cache, extract_video_id, get_all_cached_videos
+from video_cache import add_video_to_cache, extract_video_id, get_all_cached_videos
 
 def add_existing_video(url, file_path):
     """Add an existing video to the cache."""

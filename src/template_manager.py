@@ -4,7 +4,7 @@ import numpy as np
 from pathlib import Path
 import shutil
 import time
-from src.config import TEMPLATES_DIR
+from config import TEMPLATES_DIR
 
 class TemplateManager:
     """Manages badminton court templates for different tournaments and match types."""

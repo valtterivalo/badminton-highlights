@@ -189,4 +189,44 @@ def parse_set_pauses(pauses_str):
         
         pauses.append((start_time, end_time))
     
-    return pauses 
+    return pauses
+
+def create_timestamp_mapper(match_start, match_end, set_pauses):
+    """
+    Create a function that maps original video timestamps to preprocessed video timestamps.
+    This is a helper function to ensure consistent timestamp mapping across the application.
+    
+    Args:
+        match_start: Match start time in seconds
+        match_end: Match end time in seconds
+        set_pauses: List of (start, end) tuples for set pauses
+        
+    Returns:
+        function: A function that maps original timestamps to preprocessed timestamps
+    """
+    offset = 0
+    if match_start is not None:
+        offset += match_start
+    
+    pause_offsets = []
+    if set_pauses:
+        for pause_start, pause_end in set_pauses:
+            pause_duration = pause_end - pause_start
+            pause_offsets.append((pause_start, pause_duration))
+    
+    def mapper(t):
+        adjusted_t = t
+        if match_start is not None and t < match_start:
+            return 0  # Before match starts
+        if match_end is not None and t > match_end:
+            return match_end - offset  # After match ends
+        
+        adjusted_t -= offset
+        
+        for p_start, p_duration in sorted(pause_offsets):
+            if t > p_start:
+                adjusted_t -= p_duration
+        
+        return max(0, adjusted_t)
+    
+    return mapper 

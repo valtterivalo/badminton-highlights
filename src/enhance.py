@@ -1,9 +1,9 @@
 import os
 import cv2
 import numpy as np
-from moviepy.editor import VideoFileClip, concatenate_videoclips, vfx
-from moviepy.audio.fx.all import audio_fadein, audio_fadeout
 from scipy.signal import butter, filtfilt
+from moviepy.editor import VideoFileClip, concatenate_videoclips, CompositeVideoClip
+from moviepy.audio.fx.all import audio_fadein, audio_fadeout
 import subprocess
 
 def enhance_video(
@@ -213,6 +213,19 @@ def _apply_audio_filter(clip, cutoff=10000, order=4):
         Returns:
             Filtered audio array
         """
+        # Make sure audio_array is an actual array, not a function
+        if callable(audio_array):
+            # If it's a function, we need to call it to get the actual data
+            # This shouldn't normally happen, but let's handle it just in case
+            print("Warning: audio_array is a function, not an array as expected")
+            try:
+                # Try calling it without arguments first
+                audio_array = audio_array()
+            except Exception as e:
+                print(f"Error calling audio function: {e}")
+                # Return the input to avoid breaking the pipeline
+                return audio_array
+        
         # If stereo, process each channel separately
         if len(audio_array.shape) > 1 and audio_array.shape[1] > 1:
             # Get filter coefficients

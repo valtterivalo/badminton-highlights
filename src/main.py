@@ -6,6 +6,7 @@ from src.download import download_video
 from src.process import detect_rallies
 from src.compile import compile_highlights
 from src.upload import upload_to_youtube, get_authenticated_service, update_video_thumbnail
+from src.preprocess import trim_match_video, parse_timestamp, parse_set_pauses
 import json
 import requests
 import openai
@@ -230,6 +231,12 @@ def main():
     parser.add_argument("--no-color-enhance", action="store_true", help="Disable color enhancement")
     parser.add_argument("--no-audio-filter", action="store_true", help="Disable audio low-pass filter")
     
+    # Add new video preprocessing options
+    parser.add_argument("--match-start", help="Timestamp when the match starts (format: mm:ss for times under one hour, hh.mm:ss for times over one hour, e.g., '9:50' or '1.14:23')")
+    parser.add_argument("--match-end", help="Timestamp when the match ends (format: mm:ss for times under one hour, hh.mm:ss for times over one hour, e.g., '9:50' or '1.14:23')")
+    parser.add_argument("--set-pauses", help="Comma-separated list of set pauses as 'start-end' timestamps (e.g., '9:50-12:40,1.14:23-1.16:23')")
+    parser.add_argument("--keep-temp", action="store_true", help="Keep temporary preprocessed files")
+    
     args = parser.parse_args()
     
     # Create output directory if it doesn't exist
@@ -252,10 +259,41 @@ def main():
     metadata = analyze_video_metadata(args.url, title, description)
     print(f"Match information: {json.dumps(metadata, indent=2)}")
     
+    # New Step: Preprocess video to trim unwanted sections
+    match_start = parse_timestamp(args.match_start) if args.match_start else None
+    match_end = parse_timestamp(args.match_end) if args.match_end else None
+    set_pauses = parse_set_pauses(args.set_pauses) if args.set_pauses else None
+    
+    if match_start is not None or match_end is not None or set_pauses is not None:
+        print("Preprocessing video to trim unwanted sections...")
+        preprocessed_path = str(output_dir / "preprocessed_input.mp4")
+        trimmed_video_path, timestamp_mapper = trim_match_video(
+            temp_video_path,
+            preprocessed_path,
+            match_start=match_start,
+            match_end=match_end,
+            set_pauses=set_pauses
+        )
+        
+        # Use the trimmed video for further processing
+        processing_video_path = trimmed_video_path
+        print(f"Using preprocessed video for analysis: {processing_video_path}")
+    else:
+        # No preprocessing needed
+        processing_video_path = temp_video_path
+        timestamp_mapper = lambda t: t  # Identity function
+        print("No preprocessing parameters specified, using original video")
+    
     # Extract template if requested
     if args.extract_template:
-        print(f"Extracting template from video at {args.template_time} seconds...")
-        template_manager.extract_template_from_video(temp_video_path, args.template_time)
+        # If using a preprocessed video, adjust the template extraction time
+        template_time = args.template_time
+        if processing_video_path != temp_video_path and match_start is not None:
+            template_time = timestamp_mapper(match_start + args.template_time)
+            print(f"Adjusting template extraction time to {template_time}s in the trimmed video")
+        
+        print(f"Extracting template from video at {template_time} seconds...")
+        template_manager.extract_template_from_video(processing_video_path, template_time)
         print("Template extraction complete. Continuing with normal processing.")
     
     # Get the appropriate template file
@@ -271,7 +309,7 @@ def main():
     start_time = time.time()
     
     rally_segments = detect_rallies(
-        temp_video_path, 
+        processing_video_path, 
         template_path=template_path,
         test=False, 
         debug=args.debug,
@@ -304,7 +342,7 @@ def main():
         print(f"  - Audio filter: {'Enabled' if audio_filter else 'Disabled'}")
     
     compile_highlights(
-        temp_video_path, 
+        processing_video_path, 
         output_filename, 
         rally_segments, 
         enhance_video=enhance_video,
@@ -319,7 +357,7 @@ def main():
     thumbnail_path = None
     try:
         print("Extracting thumbnail...")
-        thumbnail_path = extract_thumbnail(temp_video_path, rally_segments, args.output)
+        thumbnail_path = extract_thumbnail(processing_video_path, rally_segments, args.output)
         if thumbnail_path:
             print(f"Thumbnail saved to {thumbnail_path}")
     except Exception as e:
@@ -387,9 +425,20 @@ def main():
         print(output_filename)
     
     # Cleanup
-    if os.path.exists(temp_video_path):
-        os.remove(temp_video_path)
+    if not args.keep_temp:
+        # Remove temporary files
+        if os.path.exists(temp_video_path):
+            os.remove(temp_video_path)
+        
+        # Remove preprocessed file if created
+        if processing_video_path != temp_video_path and os.path.exists(processing_video_path):
+            os.remove(processing_video_path)
+            
         print("Temporary files cleaned up.")
+    else:
+        print(f"Keeping temporary files as requested.")
+        if processing_video_path != temp_video_path:
+            print(f"Preprocessed video saved at: {processing_video_path}")
 
 if __name__ == "__main__":
     main() 

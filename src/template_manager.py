@@ -41,6 +41,15 @@ class TemplateManager:
             return str(next(iter(self.templates.values()))['path'])
         return None
     
+    def get_template_path(self):
+        """
+        Get the path to the default template.
+        
+        Returns:
+            Path to the default template
+        """
+        return self.get_default_template()
+    
     def get_best_template(self, frame):
         """
         Find the best matching template for the given frame.

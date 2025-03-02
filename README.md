@@ -104,10 +104,44 @@ Adjust detection parameters based on match type:
 python src/main.py "https://www.youtube.com/watch?v=video_id" --match-type men_doubles
 ```
 
+### Video Preprocessing Options
+
+You can preprocess the video before rally detection to trim out periods before/after the match or during set pauses:
+
+```
+python src/main.py "https://www.youtube.com/watch?v=video_id" --match-start "9:50" --match-end "1.14:23" --set-pauses "32:40-34:40,1.02:15-1.04:15"
+```
+
+#### Timestamp Format
+
+Timestamps use the following format:
+- For times under one hour: `mm:ss` (e.g., `9:50`, `12:53`)
+- For times over one hour: `hh.mm:ss` (e.g., `1.14:23`, `2.05:10`)
+
+Set pauses use the same timestamp format, separated by a dash (`-`) between start and end times, with multiple pauses separated by commas.
+
+#### Preprocessing Parameters
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `--match-start` | Timestamp when the match starts | `--match-start "9:50"` |
+| `--match-end` | Timestamp when the match ends | `--match-end "1.14:23"` |
+| `--set-pauses` | Comma-separated list of set pauses | `--set-pauses "32:40-34:40,1.02:15-1.04:15"` |
+| `--keep-temp` | Keep temporary preprocessed files | `--keep-temp` |
+
+This preprocessing trims out unwanted sections before any rally detection or highlights compilation, making the final video more focused on the actual match play.
+
 ### All Options
 
 ```
-usage: main.py [-h] [--output OUTPUT] [--upload] [--preview] [--debug] [--match-type {men_singles,women_singles,men_doubles,women_doubles,mixed_doubles}] url
+usage: main.py [-h] [--output OUTPUT] [--upload] [--preview] [--debug] 
+              [--match-type {men_singles,women_singles,men_doubles,women_doubles,mixed_doubles}]
+              [--extract-template] [--template-time TEMPLATE_TIME]
+              [--no-enhance] [--target-fps TARGET_FPS] [--speed-factor SPEED_FACTOR]
+              [--no-color-enhance] [--no-audio-filter]
+              [--match-start MATCH_START] [--match-end MATCH_END] [--set-pauses SET_PAUSES]
+              [--keep-temp]
+              url
 
 Badminton Highlights Generator
 
@@ -123,6 +157,24 @@ optional arguments:
   --debug, -d           Generate debug visualization
   --match-type {men_singles,women_singles,men_doubles,women_doubles,mixed_doubles}, -m {men_singles,women_singles,men_doubles,women_doubles,mixed_doubles}
                         Type of badminton match
+  --extract-template, -e
+                        Extract a template from the video
+  --template-time TEMPLATE_TIME, -t TEMPLATE_TIME
+                        Time (in seconds) to extract template from
+  --no-enhance          Disable video enhancements
+  --target-fps TARGET_FPS
+                        Target frame rate for interpolation (default: 60)
+  --speed-factor SPEED_FACTOR
+                        Speed factor for rallies (default: 1.05)
+  --no-color-enhance    Disable color enhancement
+  --no-audio-filter     Disable audio low-pass filter
+  --match-start MATCH_START
+                        Timestamp when the match starts (mm:ss or hh.mm:ss format)
+  --match-end MATCH_END
+                        Timestamp when the match ends (mm:ss or hh.mm:ss format)
+  --set-pauses SET_PAUSES
+                        Comma-separated list of set pauses as 'start-end' timestamps
+  --keep-temp           Keep temporary preprocessed files
 ```
 
 ## Setting Up YouTube API

@@ -1,6 +1,6 @@
 import os
 from yt_dlp import YoutubeDL
-from src import video_cache
+import video_cache
 
 def download_video(url, output_path=os.path.join(os.path.dirname(__file__), "..", "output", "input_video.mp4")):
     """

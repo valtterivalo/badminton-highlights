@@ -1,7 +1,7 @@
 import os
 import cv2
 from moviepy.editor import VideoFileClip, concatenate_videoclips
-from .enhance import enhance_highlights
+from enhance import enhance_highlights
 
 def compile_highlights(
     video_path, 

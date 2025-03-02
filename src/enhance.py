@@ -201,7 +201,18 @@ def _apply_audio_filter(clip, cutoff=10000, order=4):
         b, a = butter(order, normal_cutoff, btype='low', analog=False)
         return b, a
     
-    def process_audio(audio_array):
+    def process_audio(audio_array, *args):
+        """
+        Process audio data with a low-pass filter.
+        
+        Args:
+            audio_array: The audio data array
+            *args: Additional arguments passed by MoviePy (like t for time)
+                  which we don't need but must accept
+        
+        Returns:
+            Filtered audio array
+        """
         # If stereo, process each channel separately
         if len(audio_array.shape) > 1 and audio_array.shape[1] > 1:
             # Get filter coefficients
